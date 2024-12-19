@@ -1,8 +1,16 @@
-import { reactive } from 'vue'
+/* SPDX-License-Identifier: MIT */
+/*
+ * Author: Jianhui Zhao <zhaojh329@gmail.com>
+ */
+
+import { computed, reactive } from 'vue'
+import { useDark } from '@vueuse/core'
 import * as Vue from 'vue'
 import axios from 'axios'
 import md5 from 'js-md5'
 import i18n from '../i18n'
+
+const isDark = useDark()
 
 function mergeLocaleMessage(key, locales) {
   for (const locale in locales) {
@@ -13,30 +21,101 @@ function mergeLocaleMessage(key, locales) {
   }
 }
 
+function getSID() {
+  return sessionStorage.getItem('__oui__sid__') || ''
+}
+
 class Oui {
   constructor() {
     window.Vue = Vue
     this.menus = null
     this.inited = false
+    this.aliveTimer = null
     this.state = reactive({
+      sid: '',
       locale: '',
-      theme: '',
       hostname: ''
+    })
+
+    this.state.isDark = computed({
+      get() {
+        return isDark.value
+      },
+      set: dark => {
+        isDark.value = dark
+        const theme = dark ? 'dark' : 'light'
+        if (this.inited)
+          this.call('uci', 'set', { config: 'oui', section: 'global', values: { theme }})
+      }
+    })
+
+    const p = [
+      this.call('ui', 'get_locale'),
+      this.call('ui', 'get_theme')
+    ]
+
+    const sid = getSID()
+    if (sid)
+      p.push(this.rpc('alive', { sid }))
+
+    Promise.all(p).then(results => {
+      let locale = results[0].locale
+      if (!locale)
+        locale = 'auto'
+
+      this.state.locale = locale
+
+      if (locale === 'auto')
+        i18n.global.locale = navigator.language
+      else
+        i18n.global.locale = locale
+
+      this.state.isDark = results[1].theme === 'dark'
+
+      if (sid) {
+        const alive = results[2].alive
+        if (alive)
+          this.initWithAlived(sid)
+      }
+
+      this.inited = true
     })
   }
 
-  async rpc(method, param) {
-    const { data } = await axios.post('/oui-rpc', { method, param })
-    return data
+  waitUntil(conditionFn) {
+    if (conditionFn())
+      return
+
+    return new Promise((resolve) => {
+      const intervalId = setInterval(() => {
+        if (conditionFn()) {
+          clearInterval(intervalId)
+          resolve()
+        }
+      }, 10)
+    })
   }
 
-  async call(mod, func, param) {
-    const { result } = await this.rpc('call', [mod, func, param ?? {}])
-    return result
+  initWithAlived(sid) {
+    this.state.sid = sid
+
+    this.ubus('system', 'board').then(({ hostname }) => this.state.hostname = hostname)
+
+    this.aliveTimer = setInterval(() => {
+      this.rpc('alive', { sid })
+    }, 5000)
   }
 
-  ubus(obj, method, param) {
-    return this.call('ubus', 'call', {object: obj, method, param})
+  async rpc(method, params) {
+    return (await axios.post('/oui-rpc', { method, params })).data
+  }
+
+  async call(mod, func, params = {}) {
+    return (await this.rpc('call', [getSID(), mod, func, params])).result
+  }
+
+  ubus(obj, method, params) {
+    return this.call('ubus', 'call', {object: obj, method, params})
   }
 
   reloadConfig(config) {
@@ -47,45 +126,34 @@ class Oui {
     const { nonce } = await this.rpc('challenge', { username })
     const hash1 = md5(`${username}:${password}`)
     const hash2 = md5(`${hash1}:${nonce}`)
-    return this.rpc('login', { username, password: hash2 })
+    const { sid } = await this.rpc('login', { username, password: hash2 })
+
+    sessionStorage.setItem('__oui__sid__', sid)
+
+    this.initWithAlived(sid)
   }
 
   logout() {
     this.menus = null
-    return this.rpc('logout')
-  }
-
-  async isAuthenticated() {
-    const { authenticated } = await this.rpc('authenticated')
-    return authenticated
-  }
-
-  async init() {
-    if (this.state.locale)
+    const sid = getSID()
+    if (!sid)
       return
 
-    let { locale } = await this.call('ui', 'get_locale')
+    if (this.aliveTimer) {
+      clearInterval(this.aliveTimer)
+      this.aliveTimer = null
+    }
 
-    if (!locale)
-      locale = 'auto'
+    sessionStorage.removeItem('__oui__sid__')
 
-    this.state.locale = locale
-
-    if (locale === 'auto')
-      i18n.global.locale = navigator.language
-    else
-      i18n.global.locale = locale
-
-    const { theme } = await this.call('ui', 'get_theme')
-    this.state.theme = theme
+    return this.rpc('logout', { sid })
   }
 
-  async initWithAuthed() {
-    if (this.state.hostname)
-      return
-
-    const { hostname } = await this.ubus('system', 'board')
-    this.state.hostname = hostname
+  async isAlived() {
+    const sid = getSID()
+    if (!sid)
+      return false
+    return (await this.rpc('alive', { sid })).alive
   }
 
   parseMenus(raw) {
@@ -174,11 +242,6 @@ class Oui {
       i18n.global.locale = locale
   }
 
-  async setTheme(theme) {
-    await this.call('uci', 'set', { config: 'oui', section: 'global', values: { theme }})
-    this.state.theme = theme
-  }
-
   async setHostname(hostname) {
     await this.call('uci', 'set', { config: 'system', section: '@system[0]', values: { hostname }})
     await this.reloadConfig('system')
@@ -208,6 +271,7 @@ class Oui {
   install(app) {
     app.config.globalProperties.$oui = this
     app.config.globalProperties.$md5 = md5
+    app.provide('$oui', this)
   }
 }
 
