@@ -3,11 +3,12 @@
 ## 编译/安装
 
 :::tip
-Oui 需要 Nginx 的 `gzip static` 模块才能工作，较早的 Openwrt packages 中的 Nginx 未使能该模块。
+Oui 依赖最新版本的 `Lua-eco`。
 
-如果你用的 OpenWrt 的版本较低，需要应用该补丁:
+请确保你使用的 `OpenWrt` 中的 `Lua-eco` 已更新到最新版本。
 
-[https://github.com/openwrt/packages/commit/33a93e20a6875873232467621624b8b4df8ca427](https://github.com/openwrt/packages/commit/33a93e20a6875873232467621624b8b4df8ca427)
+你可以直接使用 [https://github.com/openwrt/packages/blob/master/lang/lua-eco/Makefile](https://github.com/openwrt/packages/blob/master/lang/lua-eco/Makefile)
+替换 `feeds/packages/lang/lua-eco/Makefile`
 :::
 
 ### 添加 feed
@@ -44,13 +45,11 @@ OUI  --->
 ```
 
 ::: tip
-编译 Oui 需要用到 Node，而且版本不能低于 14.18。
+编译 Oui 需要用到 Node，而且版本不能低于 20.9。
 
-勾选 `CONFIG_OUI_USE_HOST_NODE` 可节约编译时间，需要确保主机上安装的 Node 版本不低于 14.18。
+勾选 `Use existing nodejs installation on the host system` 可节约编译时间，需要确保主机上安装的 Node 版本不低于 20.9。
 
-[在主机上安装新版本的 Node](https://nodejs.org/en/download/package-manager/)
-
-可能你之前勾选了 Luci 相关的配置，这会和 oui 产生冲突，需要将其取消。
+你可以使用 [nvm](https://github.com/nvm-sh/nvm) 管理多个 Node 版本。
 :::
 
 ### 编译
@@ -73,22 +72,22 @@ make V=s
     server: {
         proxy: {
         '/oui-rpc': {
-            target: 'https://openwrt.lan',
+            target: 'http://openwrt.lan',
             secure: false
         },
         '/oui-upload': {
-            target: 'https://openwrt.lan',
+            target: 'http://openwrt.lan',
             secure: false
         },
         '/oui-download': {
-            target: 'https://openwrt.lan',
+            target: 'http://openwrt.lan',
             secure: false
         }
         }
     }
 }
 ```
-将其中的 `https://openwrt.lan` 修改为你的调试设备的地址,如 `https://192.168.1.1`
+将其中的 `http://openwrt.lan` 修改为你的调试设备的地址,如 `http://192.168.1.1`
 
 1. 使用 vscode 打开 oui 项目
 2. 进入 `oui-ui-core/htdoc` 目录

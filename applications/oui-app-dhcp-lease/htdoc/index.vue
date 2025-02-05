@@ -1,34 +1,46 @@
 <template>
-  <n-card :title="$t('Active DHCP Leases')">
-    <n-data-table :row-key="r => r.macaddr" :columns="columns" :data="leases"/>
-  </n-card>
+  <el-space direction="vertical" fill>
+    <el-card :header="$t('Active DHCP Leases')">
+      <el-table :data="leases">
+        <el-table-column prop="hostname" :label="$t('Hostname')" width="200"/>
+        <el-table-column prop="ipaddr" :label="$t('IPv4 address')" width="120"/>
+        <el-table-column :label="$t('MAC address')" width="150">
+          <template #default="{ row }">
+            <span>{{ row.macaddr.toUpperCase() }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('Lease')" width="180">
+          <template #default="{ row }">
+            <span>{{ formatSecond(row.expire) }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+    <el-card :header="$t('Active DHCPv6 Leases')">
+      <el-table :data="leases6">
+        <el-table-column prop="hostname" :label="$t('Hostname')" width="200"/>
+        <el-table-column :label="$t('IPv6 address')" width="200">
+          <template #default="{ row }">
+            <div v-for="a in row.ipaddr" :key="a">{{ a }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="duid" label="DUID" width="250"/>
+        <el-table-column :label="$t('Lease')" width="180">
+          <template #default="{ row }">
+            <span>{{ formatSecond(row.expire) }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+  </el-space>
 </template>
 
 <script>
 export default {
   data() {
     return {
-      columns: [
-        {
-          title: () => this.$t('Hostname'),
-          key: 'hostname'
-        },
-        {
-          title: () => this.$t('IPv4 address'),
-          key: 'ipaddr'
-        },
-        {
-          title: () => this.$t('MAC address'),
-          key: 'macaddr',
-          render: r => r.macaddr.toUpperCase()
-        },
-        {
-          title: () => this.$t('Lease'),
-          key: 'expire',
-          render: r => this.formatSecond(r.expire)
-        }
-      ],
-      leases: []
+      leases: [],
+      leases6: []
     }
   },
   methods: {
@@ -43,10 +55,29 @@ export default {
       this.$oui.call('network', 'dhcp_leases').then(({ leases }) => {
         this.leases = leases
       })
+    },
+    getDhcpLeases6() {
+      let leases6 = []
+      this.$oui.ubus('dhcp', 'ipv6leases').then(({ device }) => {
+        Object.keys(device).forEach(dev => {
+          const leases = device[dev].leases.map(l => {
+            return {
+              hostname: l.hostname,
+              duid: l.duid,
+              ipaddr: l['ipv6-addr'].map(a => a.address),
+              expire: l.valid
+            }
+          })
+          leases6 = [...leases6, ...leases]
+        })
+
+        this.leases6 = leases6
+      })
     }
   },
   created() {
     this.$timer.create('dhcp', this.getDhcpLeases, { time: 3000, immediate: true, repeat: true })
+    this.$timer.create('dhcp6', this.getDhcpLeases6, { time: 3000, immediate: true, repeat: true })
   }
 }
 </script>
