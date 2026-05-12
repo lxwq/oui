@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Author: Jianhui Zhao <zhaojh329@gmail.com>
+ */
+
 import {createRouter, createWebHashHistory} from 'vue-router'
 import addRoutesDev from './development.js'
 import oui from '../oui'
@@ -75,16 +80,15 @@ const router = createRouter({
 })
 
 router.beforeEach(async to => {
-  await oui.init()
+  await oui.waitUntil(() => oui.inited)
 
-  if (to.path === '/login')
+  if (to.path === '/login') {
+    oui.logout()
     return
+  }
 
-  const authenticated = await oui.isAuthenticated()
-  if (!authenticated)
+  if (!(await oui.isAlived()))
     return '/login'
-
-  await oui.initWithAuthed()
 
   if (import.meta.env.MODE === 'development')
     return

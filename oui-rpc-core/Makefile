@@ -15,31 +15,37 @@ PKG_MAINTAINER:=Jianhui Zhao <zhaojh329@gmail.com>
 PKG_LICENSE:=MIT
 
 include $(INCLUDE_DIR)/package.mk
-include $(INCLUDE_DIR)/cmake.mk
 
 define Package/oui-rpc-core
   SECTION:=oui
   CATEGORY:=Oui
   TITLE:=Oui rpc core
   URL:=https://github.com/zhaojh329/oui
-  DEPENDS:=+liblua +libuci-lua +libiwinfo-lua +libubus-lua +lua-cjson +nginx-ssl \
-  	+@NGINX_HTTP_GZIP_STATIC +@NGINX_HTTP_ACCESS +@NGINX_HTTP_REWRITE +@NGINX_LUA
+  DEPENDS:=+lua-cjson-lua5.4 +lua-eco-uci +lua-eco-md5 +lua-eco-ubus +lua-eco-log \
+  		+lua-eco-socket +lighttpd +lighttpd-mod-scgi +lighttpd-mod-magnet
 endef
 
+Build/Compile=
+
 define Package/oui-rpc-core/install
-	$(INSTALL_DIR) $(1)/etc/config $(1)/etc/nginx/conf.d $(1)/etc/nginx/lua \
-		$(1)/usr/share/oui $(1)/usr/lib/lua/oui $(1)/usr/share/oui/acl
+	$(INSTALL_DIR) $(1)/usr/sbin $(1)/etc/init.d $(1)/etc/config
+	$(INSTALL_BIN) ./files/oui.lua $(1)/usr/sbin/oui
+	$(INSTALL_BIN) ./files/oui.init $(1)/etc/init.d/oui
 	$(INSTALL_CONF) ./files/oui.config $(1)/etc/config/oui
-	$(INSTALL_CONF) ./files/ngx/oui.locations $(1)/etc/nginx/conf.d
-	$(INSTALL_CONF) ./files/ngx/oui.conf $(1)/etc/nginx/conf.d
-	$(INSTALL_CONF) ./files/ngx/oui-rpc.lua $(1)/etc/nginx/lua
-	$(INSTALL_CONF) ./files/ngx/oui-upload.lua $(1)/etc/nginx/lua
-	$(INSTALL_CONF) ./files/ngx/oui-download.lua $(1)/etc/nginx/lua
-	$(INSTALL_CONF) ./files/admin.acl $(1)/usr/share/oui/acl/admin.json
-	$(CP) ./files/lib/oui $(1)/usr/lib/lua
-	$(CP) ./files/lib/resty $(1)/usr/lib/lua
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lua/oui $(1)/usr/lib/lua
+
+	$(INSTALL_DIR) $(1)/usr/local/lib/lua/5.4/oui
+	$(CP) ./files/rpc.lua $(1)/usr/local/lib/lua/5.4/oui
+
+	$(INSTALL_DIR) $(1)/usr/share/oui/acl
 	$(CP) ./files/rpc $(1)/usr/share/oui
+	$(INSTALL_CONF) ./files/admin.acl $(1)/usr/share/oui/acl/admin.json
+
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_DATA) ./files/oui.default $(1)/etc/uci-defaults/50-oui
+
+	$(INSTALL_DIR) $(1)/etc/lighttpd/conf.d
+	$(INSTALL_DATA) ./files/lighttpd/oui.conf $(1)/etc/lighttpd/conf.d/50-oui.conf
+	$(INSTALL_DATA) ./files/lighttpd/handler.lua $(1)/etc/lighttpd/oui-handler.lua
 endef
 
 $(eval $(call BuildPackage,oui-rpc-core))

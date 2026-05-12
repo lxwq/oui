@@ -3,11 +3,12 @@
 ## Build & Install
 
 :::tip
-Oui requires the `gzip Static` module of Nginx to work, which is not enabled for Nginx in earlier Openwrt Packages. 
+Oui depends on the latest version of `Lua-eco`.
 
-If you are using a earlier OpenWrt, you will need to apply this patch: 
+Make sure that the `Lua-eco` in OpenWrt you are using is up to date.
 
-[https://github.com/openwrt/packages/commit/33a93e20a6875873232467621624b8b4df8ca427](https://github.com/openwrt/packages/commit/33a93e20a6875873232467621624b8b4df8ca427)
+You can replace `feeds/packages/lang/lua-eco/Makefile` with
+[https://github.com/openwrt/packages/blob/master/lang/lua-eco/Makefile](https://github.com/openwrt/packages/blob/master/lang/lua-eco/Makefile).
 :::
 
 ### Add feed
@@ -44,13 +45,11 @@ OUI  --->
 ```
 
 ::: tip
-The `Node.js 14.18+` is required to compile Oui.
+The `Node.js 20.9+` is required to compile Oui.
 
-Select `CONFIG_OUI_USE_HOST_NODE` to reduce compilation time.
+Select `Use existing nodejs installation on the host system` to reduce compilation time.
 
-[Install the new version of Node on the host](https://nodejs.org/en/download/package-manager/)
-
-You may have selected the configuration related to Luci before, which will conflict with oui, so you need to deselect it.
+You can manage multiple versions of Node with [nvm](https://github.com/nvm-sh/nvm).
 :::
 
 ### Build
@@ -73,22 +72,22 @@ Start by modifying the HTTP proxy: oui-ui-core/htdoc/vite.config.js
     server: {
         proxy: {
         '/oui-rpc': {
-            target: 'https://openwrt.lan',
+            target: 'http://openwrt.lan',
             secure: false
         },
         '/oui-upload': {
-            target: 'https://openwrt.lan',
+            target: 'http://openwrt.lan',
             secure: false
         },
         '/oui-download': {
-            target: 'https://openwrt.lan',
+            target: 'http://openwrt.lan',
             secure: false
         }
         }
     }
 }
 ```
-Change the `https://openwrt.lan` to the address of your debug device, such as `https://192.168.1.1`
+Change the `http://openwrt.lan` to the address of your debug device, such as `http://192.168.1.1`
 
 1. Open the OUI project using VSCode
 2. Enter into the directory: `oui-ui-core/htdoc`

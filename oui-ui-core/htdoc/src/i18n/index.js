@@ -1,12 +1,17 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Author: Jianhui Zhao <zhaojh329@gmail.com>
+ */
+
 import { createI18n } from 'vue-i18n'
 
 const i18n = createI18n({
-  locale: 'en-US',
-  fallbackLocale: 'en-US',
+  locale: 'en',
+  fallbackLocale: 'en',
   silentTranslationWarn: true,
   silentFallbackWarn: true,
   messages: {
-    'en-US': {},
+    'en': {},
     'zh-CN': {},
     'zh-TW': {},
     'ja-JP': {}
